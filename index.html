@@ -30,8 +30,6 @@
             --ticker-border: #2a2a2a;
             --stats-bg: #1a1a1a;
             --hover-bg: #202020;
-            --grad-start: #ff4d4d;
-            --grad-end: #990000;
         }
 
         @media (prefers-color-scheme: light) {
@@ -62,7 +60,6 @@
             transition: background-color 0.2s ease;
         }
 
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -156,7 +153,6 @@
             text-overflow: ellipsis;
         }
 
-        /* Header & Ticker */
         .animated-gradient {
             background: linear-gradient(270deg, #ffffff, #ff4d4d, #ffb347, #ff4d4d, #ffffff);
             background-size: 300% 300%;
@@ -226,13 +222,16 @@
             border: 1px solid var(--border-color);
         }
 
+        /* ===== SMOOTH INFINITE TICKER ===== */
         .ticker-wrap {
             background: var(--ticker-bg);
             border-bottom: 1px solid var(--ticker-border);
             border-top: 1px solid var(--border-color);
             display: flex;
             align-items: center;
-            overflow: hidden;
+            overflow-x: hidden;
+            position: relative;
+            width: 100%;
         }
         .ticker-badge {
             background: #ff0000;
@@ -240,40 +239,48 @@
             padding: 4px 16px;
             border-radius: 0 30px 30px 0;
             font-weight: 800;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             white-space: nowrap;
             flex-shrink: 0;
+            z-index: 2;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
         }
         .ticker-track {
             flex: 1;
-            overflow: hidden;
+            overflow-x: hidden;
+            position: relative;
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
         }
         .ticker-scroll {
             display: flex;
             white-space: nowrap;
-            gap: 2rem;
-            animation: smoothTickerScroll 3s linear infinite;
+            gap: 2.5rem;
+            will-change: transform;
+            animation: smoothMarquee 40s linear infinite;
+            width: max-content;
+        }
+        .ticker-scroll:hover {
+            animation-play-state: paused;
         }
         .ticker-item {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            font-size: 0.8rem;
-            font-weight: 500;
+            gap: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
             color: var(--text-secondary);
+            letter-spacing: 0.3px;
+            padding: 4px 0;
         }
         .ticker-item i {
             color: #ff4d4d;
+            font-size: 0.9rem;
         }
 
-        @keyframes smoothTickerScroll {
-    from {
-        transform: translateX(0);
-    }
-
-    to {
-        transform: translateX(-50%);
-    }
+        @keyframes smoothMarquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
         }
 
         .channel-grid {
@@ -292,7 +299,7 @@
             }
         }
 
-        /* OPTIMIZED PLAYER PAGE - ORIENTATION & FULLSCREEN FIX */
+        /* ===== STABLE VIDEO PLAYER - NO LAYOUT SHIFT, NO BLACK FLASH, NO JUMP ===== */
         .yt-player-page {
             position: fixed;
             inset: 0;
@@ -303,7 +310,6 @@
             animation: fadeIn 0.2s ease;
         }
         
-        /* When fullscreen is active, force video to fill screen without rotating UI elements */
         .yt-player-page:fullscreen {
             background: black;
             overflow: hidden;
@@ -336,7 +342,6 @@
             height: 100%;
         }
         
-        /* Keep UI elements stable while orientation changes - only video rotates if needed */
         @media (orientation: landscape) {
             .yt-player-page:not(:fullscreen) .video-wrapper {
                 max-height: 85vh;
@@ -362,30 +367,104 @@
                 flex: 3;
             }
             .sidebar-column {
-                flex: 1.2;
                 max-width: 420px;
             }
         }
+        
+        /* CRITICAL FIX: Stable video container - no size change, no jump */
         .video-wrapper {
-            background: #000;
+            background: #000000;
             border-radius: 20px;
             overflow: hidden;
             aspect-ratio: 16 / 9;
-            box-shadow: 0 10px 30px var(--shadow-color);
-            position: relative;
-        }
-        /* Custom video element styling for better WebView performance */
-        video {
             width: 100%;
-            height: 100%;
-            outline: none;
-            background: black;
-            display: block;
+            position: relative;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            /* Prevent any layout shift */
+            contain: layout style;
+            transform: translateZ(0);
+            backface-visibility: hidden;
         }
         
-        /* Prevent WebView from reloading on orientation change */
-        video::-webkit-media-controls-fullscreen-button {
-            cursor: pointer;
+        /* Video element - absolutely positioned within wrapper to prevent any movement */
+        .video-wrapper video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000000;
+            outline: none;
+            display: block;
+            /* Prevent any transform or shift */
+            transform: translateZ(0);
+            will-change: auto;
+        }
+        
+        /* Loading overlay - hidden by default, appears only during buffer */
+        .video-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            pointer-events: none;
+        }
+        
+        .video-loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255, 77, 77, 0.3);
+            border-top-color: #ff4d4d;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Placeholder that matches video background exactly - prevents any white/grey flash */
+        .video-wrapper::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        /* Video appears above placeholder */
+        .video-wrapper video {
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Ensure video doesn't cause layout reflow when loaded */
+        .video-wrapper video[src=""],
+        .video-wrapper video:not([src]) {
+            opacity: 0;
+        }
+        
+        .video-wrapper video[src]:not([src=""]) {
+            opacity: 1;
         }
         
         .channel-info-bar {
@@ -397,6 +476,9 @@
             margin-top: 1rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border-color);
+            position: relative;
+            z-index: 10;
+            background: var(--bg-primary);
         }
         .channel-detail {
             display: flex;
@@ -415,6 +497,7 @@
             font-size: 22px;
             overflow: hidden;
             color: white;
+            flex-shrink: 0;
         }
         .join-btn {
             background: #0088cc;
@@ -470,7 +553,6 @@
             gap: 10px;
         }
         
-        /* Responsive */
         @media (max-width: 640px) {
             .related-thumb {
                 width: 100px;
@@ -489,7 +571,6 @@
 </head>
 <body>
 
-    <!-- News Ticker -->
     <div class="ticker-wrap">
         <div class="ticker-badge"><i class="fas fa-fire"></i> TRENDING</div>
         <div class="ticker-track">
@@ -497,49 +578,63 @@
         </div>
     </div>
 
-    <!-- STICKY HEADER -->
     <div class="sticky-header">
-        <div class="unified-header">
-            <div class="logo-area">
-                <h1 class="font-black tracking-tight">
-                    <span class="animated-gradient">YouHub</span>
-                </h1>
-            </div>
-            <div class="search-wrapper-header">
-                <i class="fas fa-search search-icon-header"></i>
-                <input type="text" id="searchInputHeader" class="search-input-header" placeholder="Search channels...">
-            </div>
-            <div class="stats-badge">
-                <i class="fas fa-tv"></i>
-                <span id="channelCount">0</span>
-            </div>
+    <div class="unified-header">
+
+        <!-- Logo Area -->
+        <div class="logo-area">
+            <h1 class="font-black tracking-tight">
+                <a href="#"
+                   onclick="location.reload(); return false;"
+                   class="animated-gradient"
+                   style="text-decoration:none; cursor:pointer;">
+                    YouHub
+                </a>
+            </h1>
         </div>
+
+        <!-- Search Box -->
+        <div class="search-wrapper-header">
+            <i class="fas fa-search search-icon-header"></i>
+            <input type="text"
+                   id="searchInputHeader"
+                   class="search-input-header"
+                   placeholder="Search channels...">
+        </div>
+
+        <!-- Channel Count -->
+        <div class="stats-badge">
+            <i class="fas fa-tv"></i>
+            <span id="channelCount">0</span>
+        </div>
+
     </div>
+</div>
 
     <main class="max-w-7xl mx-auto px-4 pb-8">
-        <div id="channelGrid" class="channel-grid mt-4">
-            <div class="skeleton"></div>
-            <div class="skeleton"></div>
-        </div>
+        <div id="channelGrid" class="channel-grid mt-4"></div>
         <div id="noResults" class="text-center py-12 hidden">
             <i class="fas fa-tv-slash text-4xl text-gray-600 mb-3"></i>
             <p class="text-gray-400">No channels found</p>
         </div>
     </main>
 
-    <!-- OPTIMIZED PLAYER PAGE with advanced WebView video handling -->
+    <!-- STABLE PLAYER PAGE with anti-layout-shift -->
     <div id="playerPage" class="yt-player-page">
         <div class="player-container">
             <div class="main-video-section">
                 <div class="video-column">
-                    <!-- OPTIMIZED VIDEO WRAPPER -->
+                    <!-- STABLE VIDEO WRAPPER - Fixed dimensions, no shifting -->
                     <div class="video-wrapper" id="videoWrapper">
+                        <div class="video-loading-overlay" id="videoLoadingOverlay">
+                            <div class="loading-spinner"></div>
+                        </div>
                         <video id="playerVideo" 
+                                controls
                                playsinline 
                                webkit-playsinline 
                                x5-playsinline
                                preload="metadata"
-                               controls
                                crossorigin="anonymous">
                         </video>
                     </div>
@@ -548,7 +643,7 @@
                             <div id="playerAvatar" class="channel-avatar-sm">N</div>
                             <div>
                                 <h3 id="playerChannelName" class="font-bold text-lg">Loading...</h3>
-                                <p class="text-xs">Live Channel</p>
+                                <p class="text-xs text-gray-400">Channel</p>
                             </div>
                         </div>
                         <button id="joinBtn" class="join-btn">
@@ -574,31 +669,38 @@
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
-        // ========== SMOOTH INFINITE TICKER ==========
-        function initTicker() {
+        // Smooth Ticker
+        function initSmoothTicker() {
             const tickerScroll = document.getElementById('tickerScroll');
             if (!tickerScroll) return;
             const tickerItems = [
-                '<i class="fas fa-tv"></i> LIVE Streaming 24/7',
-                '<i class="fas fa-futbol"></i> Sports & Entertainment',
-                '<i class="fas fa-film"></i> Movies, News & More',
-                '<i class="fas fa-globe"></i> HD International Channels',
-                '<i class="fas fa-music"></i> Music Concerts Live'
+                '<i class="fas fa-newspaper"></i> BREAKING NEWS 24/7',
+                '<i class="fas fa-futbol"></i> SPORTS & ENTERTAINMENT',
+                '<i class="fas fa-film"></i> BLOCKBUSTER MOVIES',
+                '<i class="fas fa-globe"></i> HD INTERNATIONAL CHANNELS',
+                '<i class="fas fa-music"></i> MUSIC CONCERTS LIVE',
+                '<i class="fas fa-gamepad"></i> ESPORTS TOURNAMENTS'
             ];
-            let html = '';
-            for (let i = 0; i < 3; i++) {
-                tickerItems.forEach(item => { html += `<span class="ticker-item">${item}</span>`; });
+            let totalHtml = '';
+            for (let i = 0; i < 4; i++) {
+                tickerItems.forEach(item => { totalHtml += `<span class="ticker-item">${item}</span>`; });
             }
-            tickerScroll.innerHTML = html;
+            tickerScroll.innerHTML = totalHtml;
+            const adjustSpeed = () => {
+                const scrollWidth = tickerScroll.scrollWidth;
+                const containerWidth = tickerScroll.parentElement.clientWidth;
+                let duration = Math.max(25, (scrollWidth / containerWidth) * 12);
+                duration = Math.min(duration, 70);
+                tickerScroll.style.animationDuration = `${duration}s`;
+            };
+            adjustSpeed();
+            window.addEventListener('resize', adjustSpeed);
         }
         
-        // ========== OPTIMIZED VIDEO PLAYER CORE ==========
         let currentHls = null;
-        let currentVideoUrl = '';
-        let isPlayerActive = false;
-        let reloadTimeout = null;
-        const TELEGRAM_LINK = 'https://t.me/Our_Official_Channel';
         let allChannels = [];
+        let isPlayerActive = false;
+        const TELEGRAM_LINK = 'https://t.me/Our_Official_Channel';
         
         function getGradient(name) {
             const colors = ['#ff4d4d', '#f97316', '#06b6d4', '#22c55e', '#a855f7', '#ec4899', '#facc15', '#3b82f6'];
@@ -621,9 +723,19 @@
             if (span) span.innerText = count;
         }
         
-        // Optimized video cleanup without full reload
+        // Show/hide loading overlay without layout shift
+        function setLoadingOverlay(visible) {
+            const overlay = document.getElementById('videoLoadingOverlay');
+            if (overlay) {
+                if (visible) {
+                    overlay.classList.add('active');
+                } else {
+                    overlay.classList.remove('active');
+                }
+            }
+        }
+        
         function destroyCurrentVideo() {
-            if (reloadTimeout) clearTimeout(reloadTimeout);
             if (currentHls) {
                 currentHls.destroy();
                 currentHls = null;
@@ -631,17 +743,19 @@
             const video = document.getElementById('playerVideo');
             if (video) {
                 video.pause();
-                // Don't remove src immediately to avoid flickering, just detach hls
+                // Remove src without causing layout jump
                 video.removeAttribute('src');
                 video.load();
             }
         }
         
-        // Enhanced video loader with better HLS.js config for WebView
+        // STABLE VIDEO LOADING - no black flash, no position shift
         function loadVideoStream(url, videoElement) {
             if (!videoElement) return;
             
-            // Clear previous state
+            // Show loading indicator while buffering
+            setLoadingOverlay(true);
+            
             if (currentHls) {
                 currentHls.destroy();
                 currentHls = null;
@@ -650,7 +764,16 @@
             videoElement.pause();
             videoElement.removeAttribute('src');
             
-            // For HLS streams
+            const handleCanPlay = () => {
+                setLoadingOverlay(false);
+                videoElement.removeEventListener('canplay', handleCanPlay);
+                videoElement.removeEventListener('loadedmetadata', handleCanPlay);
+            };
+            
+            videoElement.addEventListener('canplay', handleCanPlay);
+            videoElement.addEventListener('loadedmetadata', handleCanPlay);
+            
+            // HLS Stream
             if (url.includes('.m3u8') || url.includes('m3u8')) {
                 if (Hls.isSupported()) {
                     currentHls = new Hls({
@@ -659,42 +782,35 @@
                         lowLatencyMode: true,
                         backBufferLength: 30,
                         maxBufferLength: 30,
-                        maxMaxBufferLength: 60,
-                        liveSyncDurationCount: 3,
-                        liveMaxLatencyDurationCount: 5,
-                        enableWebVTT: false,
-                        // Better for unstable connections
+                        liveSyncDurationCount: 2,
                         fragLoadingTimeOut: 20000,
-                        manifestLoadingTimeOut: 10000,
-                        startLevel: -1
+                        manifestLoadingTimeOut: 10000
                     });
                     currentHls.loadSource(url);
                     currentHls.attachMedia(videoElement);
                     currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        videoElement.play().catch(e => console.warn("Playback prevented:", e));
+                        videoElement.play().catch(e => {
+                            console.warn("Auto-play blocked:", e);
+                            setLoadingOverlay(false);
+                        });
                     });
                     currentHls.on(Hls.Events.ERROR, (event, data) => {
                         if (data.fatal) {
-                            switch (data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    console.warn("Network error, retrying...");
-                                    setTimeout(() => loadVideoStream(url, videoElement), 2000);
-                                    break;
-                                default:
-                                    fallbackPlay(url, videoElement);
-                                    break;
+                            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                                setTimeout(() => loadVideoStream(url, videoElement), 2000);
+                            } else {
+                                fallbackPlay(url, videoElement);
                             }
                         }
                     });
                 } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
                     videoElement.src = url;
                     videoElement.load();
-                    videoElement.play().catch(e => console.log(e));
+                    videoElement.play().catch(e => setLoadingOverlay(false));
                 } else {
                     fallbackPlay(url, videoElement);
                 }
             } else {
-                // Direct MP4 or other formats
                 fallbackPlay(url, videoElement);
             }
         }
@@ -702,48 +818,12 @@
         function fallbackPlay(url, video) {
             video.src = url;
             video.load();
-            video.play().catch(e => console.warn("Auto-play blocked:", e));
-        }
-        
-        // Fullscreen advanced handling with orientation stability
-        function setupFullscreenHandling(videoElement, wrapper) {
-            if (!videoElement) return;
-            
-            // Native fullscreen support
-            videoElement.addEventListener('webkitbeginfullscreen', () => {
-                document.body.style.overflow = 'hidden';
-            });
-            videoElement.addEventListener('webkitendfullscreen', () => {
-                document.body.style.overflow = '';
-                // Restore UI after fullscreen exit
-                setTimeout(() => {
-                    if (window.innerWidth < window.innerHeight && !document.fullscreenElement) {
-                        window.scrollTo(0, 0);
-                    }
-                }, 100);
-            });
-            
-            // Listen to fullscreen change event for standard API
-            document.addEventListener('fullscreenchange', () => {
-                if (!document.fullscreenElement) {
-                    document.body.style.overflow = '';
-                    // Restore player layout orientation
-                    const playerPage = document.getElementById('playerPage');
-                    if (playerPage && playerPage.style.display === 'block') {
-                        playerPage.style.overflowY = 'auto';
-                    }
-                } else {
-                    document.body.style.overflow = 'hidden';
-                }
-            });
-            
-            // Prevent accidental page zoom on double-tap (maintains video stability)
-            videoElement.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) e.stopPropagation();
+            video.play().catch(e => {
+                console.warn("Fallback play error:", e);
+                setLoadingOverlay(false);
             });
         }
         
-        // Render functions for home and player
         function renderHomeChannels(channels) {
             const grid = document.getElementById('channelGrid');
             const noResult = document.getElementById('noResults');
@@ -816,7 +896,7 @@
                         </div>
                         <div class="related-info">
                             <h4>${escapeHtml(ch.name)}</h4>
-                            <p class="text-xs">Live Channel</p>
+                            <p class="text-xs text-gray-400">Live Channel</p>
                         </div>
                     </div>
                 `;
@@ -829,16 +909,9 @@
             const channelNameSpan = document.getElementById('playerChannelName');
             const avatarDiv = document.getElementById('playerAvatar');
             
-            // Clean previous video state without destroying entire DOM
-            if (currentHls) {
-                currentHls.destroy();
-                currentHls = null;
-            }
-            if (video) {
-                video.pause();
-                video.src = '';
-                video.load();
-            }
+            // Reset and cleanup without any visual jump
+            setLoadingOverlay(true);
+            destroyCurrentVideo();
             
             channelNameSpan.innerText = name;
             avatarDiv.style.background = gradient;
@@ -848,7 +921,6 @@
                 avatarDiv.innerHTML = firstLetter;
             }
             
-            // Setup join button
             const joinBtn = document.getElementById('joinBtn');
             const newJoinBtn = joinBtn.cloneNode(true);
             joinBtn.parentNode.replaceChild(newJoinBtn, joinBtn);
@@ -858,21 +930,12 @@
             loadRelatedChannels(name);
             renderMoreLiveChannels(name);
             
-            // Load stream with optimized handler
+            // Load video stream - it will hide overlay when ready
             loadVideoStream(url, video);
-            currentVideoUrl = url;
-            
-            // Attach fullscreen handling once
-            if (!video._fullscreenSetup) {
-                setupFullscreenHandling(video, document.getElementById('videoWrapper'));
-                video._fullscreenSetup = true;
-            }
             
             playerPage.style.display = 'block';
             document.body.style.overflow = 'hidden';
             isPlayerActive = true;
-            
-            // Handle back button gracefully
             history.pushState({ playerOpen: true }, '', '#player');
         };
         
@@ -888,9 +951,10 @@
                         currentHls.destroy();
                         currentHls = null;
                     }
-                    video.src = '';
+                    video.removeAttribute('src');
                     video.load();
                 }
+                setLoadingOverlay(false);
                 isPlayerActive = false;
                 if (window.location.hash === '#player') history.back();
             }
@@ -915,7 +979,6 @@
             }
         }
         
-        // Search logic
         let searchDebounce;
         function initSearch() {
             const input = document.getElementById('searchInputHeader');
@@ -929,11 +992,10 @@
             });
         }
         
-        // Back button handling
         window.addEventListener('load', () => {
             fetchChannels();
             initSearch();
-            initTicker();
+            initSmoothTicker();
             window.addEventListener('popstate', (e) => {
                 if (isPlayerActive) {
                     closePlayerPage();
