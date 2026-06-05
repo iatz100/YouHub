@@ -267,6 +267,16 @@
             color: #ff4d4d;
         }
 
+        @keyframes smoothTickerScroll {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-50%);
+    }
+        }
+
         .channel-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
