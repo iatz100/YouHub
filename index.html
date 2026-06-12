@@ -992,44 +992,33 @@
     renderMoreLiveChannels(name);
     
     // Load video stream - it will hide overlay when ready
-    // Load video stream - it will hide overlay when ready
-    // Load video stream
     loadVideoStream(url, video);
     
     playerPage.style.display = 'block';
     document.body.style.overflow = 'hidden';
     isPlayerActive = true;
-    
-    // ব্যাক বাটন ফিক্স
-    if (window.location.hash === '#player') {
-        history.replaceState({ playerOpen: false }, '', window.location.pathname);
-    }
     history.pushState({ playerOpen: true }, '', '#player');
-};  // ← এখানে openPlayer ফাংশন শেষ হচ্ছে
-
-// ========== closePlayerPage ফাংশন (আলাদা) ==========
-function closePlayerPage() {
-    const playerPage = document.getElementById('playerPage');
-    if (playerPage.style.display === 'block') {
-        playerPage.style.display = 'none';
-        document.body.style.overflow = 'auto';
-        const video = document.getElementById('playerVideo');
-        if (video) {
-            video.pause();
-            if (currentHls) {
-                currentHls.destroy();
-                currentHls = null;
+};
+        function closePlayerPage() {
+            const playerPage = document.getElementById('playerPage');
+            if (playerPage.style.display === 'block') {
+                playerPage.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                const video = document.getElementById('playerVideo');
+                if (video) {
+                    video.pause();
+                    if (currentHls) {
+                        currentHls.destroy();
+                        currentHls = null;
+                    }
+                    video.removeAttribute('src');
+                    video.load();
+                }
+                setLoadingOverlay(false);
+                isPlayerActive = false;
+                if (window.location.hash === '#player') history.back();
             }
-            video.removeAttribute('src');
-            video.load();
         }
-        setLoadingOverlay(false);
-        isPlayerActive = false;
-        if (window.location.hash === '#player') {
-            history.back();
-        }
-    }
-}
 
  async function fetchChannels() {
     const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/refs/heads/main/FIFA.json';
