@@ -806,31 +806,32 @@
     if (url.includes('.m3u8') || url.includes('m3u8')) {
         if (Hls.isSupported()) {
             currentHls = new Hls({
-    debug: false,
-    enableWorker: true,
-    // 🔥 ম্যাক্সিমাম বাফার (আটকানো বন্ধের জন্য)
-    lowLatencyMode: false,
-    liveSyncDurationCount: 5,
-    liveMaxLatencyDurationCount: 10,
-    maxBufferLength: 30,                    // 10 থেকে 30
-    maxBufferSize: 30 * 1000 * 1000,        // 30MB বাফার
-    maxMaxBufferLength: 60,                 // 20 থেকে 60
-    startPosition: -1,
-    // নেটওয়ার্ক সেটিংস
-    abrEwmaDefaultEstimate: 500000,
-    abrEwmaFastLive: 2,
-    abrEwmaSlowLive: 8,
-    abrBandWidthFactor: 0.9,
-    abrBandWidthUpFactor: 0.8,
-    startFragPrefetch: true,
-    testBandwidth: true,
-    // টাইমআউট
-    manifestLoadingTimeOut: 15000,
-    manifestLoadingMaxRetry: 4,
-    levelLoadingTimeOut: 15000,
-    fragLoadingTimeOut: 20000,
-    fragLoadingMaxRetry: 5
-});
+                debug: false,
+                enableWorker: true,
+                // 🔥 4K রেডি সেটিংস
+                lowLatencyMode: false,
+                liveSyncDurationCount: 10,
+                liveMaxLatencyDurationCount: 20,
+                // 🚀 ম্যাক্সিমাম বাফার
+                maxBufferLength: 60,                    // 30 থেকে 60
+                maxBufferSize: 60 * 1000 * 1000,        // 60MB বাফার
+                maxMaxBufferLength: 120,                 // 60 থেকে 120
+                startPosition: -1,
+                // 🎯 হাই-রেজ সেটিংস
+                abrEwmaDefaultEstimate: 8000000,         // 8Mbps ডিফল্ট
+                abrEwmaFastLive: 3,
+                abrEwmaSlowLive: 10,
+                abrBandWidthFactor: 1.0,
+                abrBandWidthUpFactor: 0.9,
+                startFragPrefetch: true,
+                testBandwidth: true,
+                // ⚡ টাইমআউট (4K এর জন্য বেশি)
+                manifestLoadingTimeOut: 20000,
+                manifestLoadingMaxRetry: 5,
+                levelLoadingTimeOut: 20000,
+                fragLoadingTimeOut: 30000,
+                fragLoadingMaxRetry: 6
+            });
             
             currentHls.loadSource(url);
             currentHls.attachMedia(videoElement);
@@ -840,13 +841,15 @@
             currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (currentHls && !started) {
                     started = true;
-                    // অটো কোয়ালিটি (নেটওয়ার্ক বুঝে)
-                    currentHls.currentLevel = -1;
+                    // সবচেয়ে ভালো কোয়ালিটি সিলেক্ট (4K থাকলে)
+                    if (currentHls.levels && currentHls.levels.length) {
+                        currentHls.currentLevel = currentHls.levels.length - 1;  // সর্বোচ্চ কোয়ালিটি
+                    }
                     videoElement.play().catch(e => console.warn(e));
                 }
             });
             
-            // বাফার কম হলে আগেই লোড করা শুরু করবে
+            // বাফার চেক
             currentHls.on(Hls.Events.BUFFER_STALLED, () => {
                 if (currentHls) {
                     currentHls.startLoad();
@@ -856,7 +859,7 @@
             currentHls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                        setTimeout(() => loadVideoStream(url, videoElement), 3000);
+                        setTimeout(() => loadVideoStream(url, videoElement), 2000);
                     } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         currentHls.recoverMediaError();
                     } else {
