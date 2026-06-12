@@ -611,15 +611,14 @@
 
         <!-- Logo Area -->
         <div class="logo-area">
-            <h1 class="font-black tracking-tight">
-                <a href="#"
-                   onclick="location.reload(); return false;"
-                   class="animated-gradient"
-                   style="text-decoration:none; cursor:pointer;">
-                    YouHub
-                </a>
-            </h1>
-        </div>
+    <h1 class="font-black tracking-tight">
+        <a href="https://iatz100.github.io/iatz_service_website/tvchannel.html"
+           class="animated-gradient"
+           style="text-decoration:none; cursor:pointer;">
+            YouHub
+        </a>
+    </h1>
+</div>
 
         <!-- Search Box -->
         <div class="search-wrapper-header">
@@ -793,64 +792,71 @@
     videoElement.pause();
     videoElement.removeAttribute('src');
     
+    const timeoutId = setTimeout(() => {
+        setLoadingOverlay(false);
+    }, 10000);
+    
     const handleCanPlay = () => {
+        clearTimeout(timeoutId);
         setLoadingOverlay(false);
         videoElement.removeEventListener('canplay', handleCanPlay);
-        videoElement.removeEventListener('loadedmetadata', handleCanPlay);
     };
-    
     videoElement.addEventListener('canplay', handleCanPlay);
-    videoElement.addEventListener('loadedmetadata', handleCanPlay);
     
-    // 🚀 HLS Stream - দ্রুত লোডের জন্য অপটিমাইজড
     if (url.includes('.m3u8') || url.includes('m3u8')) {
         if (Hls.isSupported()) {
             currentHls = new Hls({
-                debug: false,
-                enableWorker: true,
-                // ⚡ লো লেটেন্সি সেটিংস
-                lowLatencyMode: true,
-                liveSyncDurationCount: 1,        // 2 থেকে কমিয়ে 1
-                liveMaxLatencyDurationCount: 3,
-                maxBufferLength: 10,              // 30 থেকে কমিয়ে 10
-                maxBufferSize: 10 * 1000 * 1000,  // 10MB বাফার
-                maxMaxBufferLength: 20,
-                startPosition: -1,                 // লাইভের একদম শেষ থেকে শুরু
-                // ⚡ টাইমআউট কমিয়ে দেয়া
-                manifestLoadingTimeOut: 5000,      // 10000 থেকে 5000
-                manifestLoadingMaxRetry: 2,
-                levelLoadingTimeOut: 5000,
-                fragLoadingTimeOut: 8000,          // 20000 থেকে 8000
-                fragLoadingMaxRetry: 3,
-                // ⚡ ABR সেটিংস
-                abrEwmaDefaultEstimate: 500000,    // বিটরেট অনুমান
-                abrEwmaFastLive: 1,
-                abrEwmaSlowLive: 5,
-                abrBandWidthFactor: 0.8,
-                abrBandWidthUpFactor: 0.7
-            });
+    debug: false,
+    enableWorker: true,
+    // 🔥 ম্যাক্সিমাম বাফার (আটকানো বন্ধের জন্য)
+    lowLatencyMode: false,
+    liveSyncDurationCount: 5,
+    liveMaxLatencyDurationCount: 10,
+    maxBufferLength: 30,                    // 10 থেকে 30
+    maxBufferSize: 30 * 1000 * 1000,        // 30MB বাফার
+    maxMaxBufferLength: 60,                 // 20 থেকে 60
+    startPosition: -1,
+    // নেটওয়ার্ক সেটিংস
+    abrEwmaDefaultEstimate: 500000,
+    abrEwmaFastLive: 2,
+    abrEwmaSlowLive: 8,
+    abrBandWidthFactor: 0.9,
+    abrBandWidthUpFactor: 0.8,
+    startFragPrefetch: true,
+    testBandwidth: true,
+    // টাইমআউট
+    manifestLoadingTimeOut: 15000,
+    manifestLoadingMaxRetry: 4,
+    levelLoadingTimeOut: 15000,
+    fragLoadingTimeOut: 20000,
+    fragLoadingMaxRetry: 5
+});
             
             currentHls.loadSource(url);
             currentHls.attachMedia(videoElement);
             
+            let started = false;
+            
             currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                // ⚡ লাইভ স্ট্রিমের একদম শেষ পয়েন্টে শুরু
-                if (currentHls) {
-                    const livePosition = currentHls.liveSyncPosition;
-                    if (livePosition) {
-                        videoElement.currentTime = livePosition;
-                    }
+                if (currentHls && !started) {
+                    started = true;
+                    // অটো কোয়ালিটি (নেটওয়ার্ক বুঝে)
+                    currentHls.currentLevel = -1;
+                    videoElement.play().catch(e => console.warn(e));
                 }
-                videoElement.play().catch(e => {
-                    console.warn("Auto-play blocked:", e);
-                    setLoadingOverlay(false);
-                });
+            });
+            
+            // বাফার কম হলে আগেই লোড করা শুরু করবে
+            currentHls.on(Hls.Events.BUFFER_STALLED, () => {
+                if (currentHls) {
+                    currentHls.startLoad();
+                }
             });
             
             currentHls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                        setTimeout(() => loadVideoStream(url, videoElement), 1000);
+                        setTimeout(() => loadVideoStream(url, videoElement), 3000);
                     } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         currentHls.recoverMediaError();
                     } else {
@@ -858,26 +864,19 @@
                     }
                 }
             });
-        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-            videoElement.src = url;
-            videoElement.load();
-            videoElement.play().catch(e => setLoadingOverlay(false));
         } else {
             fallbackPlay(url, videoElement);
         }
     } else {
         fallbackPlay(url, videoElement);
     }
+    
+    function fallbackPlay(url, video) {
+        video.src = url;
+        video.load();
+        video.play().catch(() => setLoadingOverlay(false));
+    }
 }
-        
-        function fallbackPlay(url, video) {
-            video.src = url;
-            video.load();
-            video.play().catch(e => {
-                console.warn("Fallback play error:", e);
-                setLoadingOverlay(false);
-            });
-        }
         
         function renderHomeChannels(channels) {
             const grid = document.getElementById('channelGrid');
@@ -992,36 +991,47 @@
     renderMoreLiveChannels(name);
     
     // Load video stream - it will hide overlay when ready
+    // Load video stream - it will hide overlay when ready
+    // Load video stream
     loadVideoStream(url, video);
     
     playerPage.style.display = 'block';
     document.body.style.overflow = 'hidden';
     isPlayerActive = true;
+    
+    // ব্যাক বাটন ফিক্স
+    if (window.location.hash === '#player') {
+        history.replaceState({ playerOpen: false }, '', window.location.pathname);
+    }
     history.pushState({ playerOpen: true }, '', '#player');
-};
-        function closePlayerPage() {
-            const playerPage = document.getElementById('playerPage');
-            if (playerPage.style.display === 'block') {
-                playerPage.style.display = 'none';
-                document.body.style.overflow = 'auto';
-                const video = document.getElementById('playerVideo');
-                if (video) {
-                    video.pause();
-                    if (currentHls) {
-                        currentHls.destroy();
-                        currentHls = null;
-                    }
-                    video.removeAttribute('src');
-                    video.load();
-                }
-                setLoadingOverlay(false);
-                isPlayerActive = false;
-                if (window.location.hash === '#player') history.back();
+};  // ← এখানে openPlayer ফাংশন শেষ হচ্ছে
+
+// ========== closePlayerPage ফাংশন (আলাদা) ==========
+function closePlayerPage() {
+    const playerPage = document.getElementById('playerPage');
+    if (playerPage.style.display === 'block') {
+        playerPage.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        const video = document.getElementById('playerVideo');
+        if (video) {
+            video.pause();
+            if (currentHls) {
+                currentHls.destroy();
+                currentHls = null;
             }
+            video.removeAttribute('src');
+            video.load();
         }
+        setLoadingOverlay(false);
+        isPlayerActive = false;
+        if (window.location.hash === '#player') {
+            history.back();
+        }
+    }
+}
 
  async function fetchChannels() {
-    const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/main/FIFA.json';
+    const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/refs/heads/main/FIFA.json';
     try {
         const res = await fetch(API_URL, { cache: "no-cache" });
         if (!res.ok) throw new Error();
