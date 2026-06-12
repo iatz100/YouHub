@@ -1020,10 +1020,7 @@
             }
         }
 
-        // ========== ১. ডিফল্ট চ্যানেল একবারই লোড হবে ==========
-let defaultLoaded = false; 
-
-async function fetchChannels() {
+ async function fetchChannels() {
     const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/main/FIFA.json';
     try {
         const res = await fetch(API_URL, { cache: "no-cache" });
@@ -1037,23 +1034,17 @@ async function fetchChannels() {
                 isExternal: false
             }));
             
-            // ✅ চেক করা - ডিফল্ট ইতিমধ্যে যোগ করা আছে কিনা
-            if (!defaultLoaded) {
-                allChannels = [DEFAULT_CHANNEL, ...fetchedChannels];
-                defaultLoaded = true;
-            } else {
-                allChannels = fetchedChannels;
-            }
-            
+            // শুধু API চ্যানেল, কোন ডিফল্ট নেই
+            allChannels = fetchedChannels;
             renderHomeChannels(allChannels.slice(0, visibleChannels));
+            updateChannelCount(allChannels.length);
         } else throw new Error();
     } catch (err) {
-        if (!defaultLoaded) {
-            allChannels = [DEFAULT_CHANNEL];
-            defaultLoaded = true;
-            renderHomeChannels(allChannels);
-            document.getElementById('channelGrid').innerHTML += '<div class="col-span-full text-center py-4 text-yellow-400">⚠️ Server channels failed to load. Showing default channel only.</div>';
-        }
+        // API ব্যর্থ হলে খালি দেখাবে
+        allChannels = [];
+        renderHomeChannels([]);
+        document.getElementById('channelGrid').innerHTML = '<div class="col-span-full text-center py-8 text-red-400">⚠️ No channels available. Please try again later.</div>';
+        updateChannelCount(0);
     }
 }
         
