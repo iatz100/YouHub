@@ -794,7 +794,7 @@
     
     const timeoutId = setTimeout(() => {
         setLoadingOverlay(false);
-    }, 10000);
+    }, 3000);
     
     const handleCanPlay = () => {
         clearTimeout(timeoutId);
@@ -808,29 +808,26 @@
             currentHls = new Hls({
                 debug: false,
                 enableWorker: true,
-                // 🔥 4K রেডি সেটিংস
-                lowLatencyMode: false,
-                liveSyncDurationCount: 10,
-                liveMaxLatencyDurationCount: 20,
-                // 🚀 ম্যাক্সিমাম বাফার
-                maxBufferLength: 60,                    // 30 থেকে 60
-                maxBufferSize: 60 * 1000 * 1000,        // 60MB বাফার
-                maxMaxBufferLength: 120,                 // 60 থেকে 120
+                lowLatencyMode: false,        // বেশি বাফার জমাবে
+                liveSyncDurationCount: 30,     // 30 সেকেন্ড ডিলে
+                liveMaxLatencyDurationCount: 60, // 60 সেকেন্ড (১ মিনিট)
+                maxBufferLength: 60,           // 60 সেকেন্ড বাফার
+                maxBufferSize: 60 * 1000 * 1000,
+                maxMaxBufferLength: 120,
                 startPosition: -1,
-                // 🎯 হাই-রেজ সেটিংস
-                abrEwmaDefaultEstimate: 8000000,         // 8Mbps ডিফল্ট
-                abrEwmaFastLive: 3,
-                abrEwmaSlowLive: 10,
-                abrBandWidthFactor: 1.0,
-                abrBandWidthUpFactor: 0.9,
+                // ফাস্ট স্টার্টের জন্য
+                abrEwmaDefaultEstimate: 500000,
+                abrEwmaFastLive: 0.5,
+                abrEwmaSlowLive: 2,
+                abrBandWidthFactor: 0.8,
+                abrBandWidthUpFactor: 0.6,
                 startFragPrefetch: true,
                 testBandwidth: true,
-                // ⚡ টাইমআউট (4K এর জন্য বেশি)
-                manifestLoadingTimeOut: 20000,
-                manifestLoadingMaxRetry: 5,
-                levelLoadingTimeOut: 20000,
-                fragLoadingTimeOut: 30000,
-                fragLoadingMaxRetry: 6
+                manifestLoadingTimeOut: 5000,
+                manifestLoadingMaxRetry: 3,
+                levelLoadingTimeOut: 5000,
+                fragLoadingTimeOut: 8000,
+                fragLoadingMaxRetry: 4
             });
             
             currentHls.loadSource(url);
@@ -841,18 +838,21 @@
             currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (currentHls && !started) {
                     started = true;
-                    // সবচেয়ে ভালো কোয়ালিটি সিলেক্ট (4K থাকলে)
-                    if (currentHls.levels && currentHls.levels.length) {
-                        currentHls.currentLevel = currentHls.levels.length - 1;  // সর্বোচ্চ কোয়ালিটি
-                    }
+                    // অটো কোয়ালিটি
+                    currentHls.currentLevel = -1;
                     videoElement.play().catch(e => console.warn(e));
                 }
             });
             
-            // বাফার চেক
-            currentHls.on(Hls.Events.BUFFER_STALLED, () => {
-                if (currentHls) {
-                    currentHls.startLoad();
+            // বাফার স্ট্যাটাস দেখাবে (কনসোলে)
+            currentHls.on(Hls.Events.BUFFER_APPENDING, () => {
+                if (videoElement.buffered.length > 0) {
+                    let bufferedEnd = videoElement.buffered.end(videoElement.buffered.length - 1);
+                    let currentTime = videoElement.currentTime;
+                    let bufferedAhead = bufferedEnd - currentTime;
+                    if (bufferedAhead > 0) {
+                        console.log(`📦 বাফার জমেছে: ${bufferedAhead.toFixed(0)} সেকেন্ড`);
+                    }
                 }
             });
             
