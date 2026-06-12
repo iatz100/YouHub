@@ -794,7 +794,7 @@
     
     const timeoutId = setTimeout(() => {
         setLoadingOverlay(false);
-    }, 10000);
+    }, 8000);
     
     const handleCanPlay = () => {
         clearTimeout(timeoutId);
@@ -808,29 +808,29 @@
             currentHls = new Hls({
                 debug: false,
                 enableWorker: true,
-                // 🎯 স্মুথ প্লেব্যাকের জন্য সেটিংস
-                lowLatencyMode: false,  // false করলে বেশি বাফার জমবে
-                liveSyncDurationCount: 3,
-                liveMaxLatencyDurationCount: 6,
-                // 🎯 বাফার সাইজ বাড়ানো (আটকানো বন্ধ হবে)
-                maxBufferLength: 10,                 // 0.5 থেকে 10
-                maxBufferSize: 10 * 1000 * 1000,     // 10MB বাফার
-                maxMaxBufferLength: 20,
+                // 🔥 কম নেটওয়ার্কের জন্য স্পেশাল সেটিংস
+                lowLatencyMode: true,
+                liveSyncDurationCount: 1,
+                liveMaxLatencyDurationCount: 2,
+                // ⚡ মিনিমাম বাফার (দ্রুত শুরু)
+                maxBufferLength: 0.5,                // 0.5 সেকেন্ড বাফার
+                maxBufferSize: 500 * 1000,            // 500KB বাফার
+                maxMaxBufferLength: 1,
                 startPosition: -1,
-                // 🎯 নেটওয়ার্ক সেটিংস
-                abrEwmaDefaultEstimate: 500000,
-                abrEwmaFastLive: 1,
-                abrEwmaSlowLive: 5,
-                abrBandWidthFactor: 0.8,
-                abrBandWidthUpFactor: 0.7,
+                // 🎯 নেটওয়ার্ক অনুযায়ী অটো কোয়ালিটি
+                abrEwmaDefaultEstimate: 100000,       // 100kbps ডিফল্ট
+                abrEwmaFastLive: 0.3,
+                abrEwmaSlowLive: 1,
+                abrBandWidthFactor: 0.5,              // খারাপ নেটে কম কোয়ালিটি
+                abrBandWidthUpFactor: 0.3,            // ধীরে আপগ্রেড
                 startFragPrefetch: true,
-                testBandwidth: true,
-                // 🎯 টাইমআউট
-                manifestLoadingTimeOut: 10000,
-                manifestLoadingMaxRetry: 3,
-                levelLoadingTimeOut: 10000,
-                fragLoadingTimeOut: 15000,
-                fragLoadingMaxRetry: 4
+                testBandwidth: true,                  // নেট স্পিড টেস্ট করবে
+                // ⚡ টাইমআউট দ্রুত
+                manifestLoadingTimeOut: 5000,
+                manifestLoadingMaxRetry: 2,
+                levelLoadingTimeOut: 3000,
+                fragLoadingTimeOut: 5000,
+                fragLoadingMaxRetry: 3
             });
             
             currentHls.loadSource(url);
@@ -841,23 +841,28 @@
             currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (currentHls && !started) {
                     started = true;
-                    // অটো কোয়ালিটি (নেটওয়ার্ক বুঝে)
-                    currentHls.currentLevel = -1;
+                    // সবচেয়ে কম কোয়ালিটি থেকে শুরু
+                    if (currentHls.levels && currentHls.levels.length) {
+                        currentHls.currentLevel = -1;  // অটো মোড - নেট অনুযায়ী সিলেক্ট
+                    }
                     videoElement.play().catch(e => console.warn(e));
                 }
             });
             
-            // বাফার কম হলে আগেই লোড করা শুরু করবে
-            currentHls.on(Hls.Events.BUFFER_STALLED, () => {
-                if (currentHls) {
-                    currentHls.startLoad();
+            // নেটওয়ার্ক চেক করে অটো কোয়ালিটি অ্যাডজাস্ট
+            currentHls.on(Hls.Events.FRAG_LOADED, () => {
+                if (currentHls && currentHls.levels) {
+                    const currentBitrate = currentHls.bandwidthEstimate;
+                    if (currentBitrate < 200000) { // 200kbps এর নিচে
+                        currentHls.nextLevel = 0;  // সবচেয়ে লো কোয়ালিটি
+                    }
                 }
             });
             
             currentHls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                        setTimeout(() => loadVideoStream(url, videoElement), 3000);
+                        setTimeout(() => loadVideoStream(url, videoElement), 2000);
                     } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         currentHls.recoverMediaError();
                     } else {
