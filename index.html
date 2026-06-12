@@ -1021,7 +1021,7 @@
         }
 
  async function fetchChannels() {
-    const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/main/FIFA.json';
+    const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/refs/heads/main/FIFA.json';
     try {
         const res = await fetch(API_URL, { cache: "no-cache" });
         if (!res.ok) throw new Error();
