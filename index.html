@@ -611,14 +611,15 @@
 
         <!-- Logo Area -->
         <div class="logo-area">
-    <h1 class="font-black tracking-tight">
-        <a href="https://iatz100.github.io/iatz_service_website/tvchannel.html"
-           class="animated-gradient"
-           style="text-decoration:none; cursor:pointer;">
-            YouHub
-        </a>
-    </h1>
-</div>
+            <h1 class="font-black tracking-tight">
+                <a href="#"
+                   onclick="location.reload(); return false;"
+                   class="animated-gradient"
+                   style="text-decoration:none; cursor:pointer;">
+                    YouHub
+                </a>
+            </h1>
+        </div>
 
         <!-- Search Box -->
         <div class="search-wrapper-header">
@@ -803,48 +804,48 @@
     
     // 🚀 HLS Stream - দ্রুত লোডের জন্য অপটিমাইজড
     if (url.includes('.m3u8') || url.includes('m3u8')) {
-    if (Hls.isSupported()) {
-        currentHls = new Hls({
-            debug: false,
-            enableWorker: true,
-            lowLatencyMode: true,
-            liveSyncDurationCount: 1,
-            liveMaxLatencyDurationCount: 3,
-            maxBufferLength: 3,              // ✅ পরিবর্তন
-            maxBufferSize: 3 * 1000 * 1000,  // ✅ পরিবর্তন
-            maxMaxBufferLength: 6,           // ✅ পরিবর্তন
-            startPosition: -1,
-            manifestLoadingTimeOut: 5000,
-            manifestLoadingMaxRetry: 2,
-            levelLoadingTimeOut: 5000,
-            fragLoadingTimeOut: 8000,
-            fragLoadingMaxRetry: 3,
-            abrEwmaDefaultEstimate: 300000,  // ✅ 500000 থেকে কমিয়ে 300000
-            abrEwmaFastLive: 0.5,            // ✅ নতুন
-            abrEwmaSlowLive: 2,              // ✅ নতুন
-            abrBandWidthFactor: 0.7,          // ✅ 0.8 থেকে 0.7
-            abrBandWidthUpFactor: 0.5         // ✅ 0.7 থেকে 0.5
-        });
-        
-        currentHls.loadSource(url);
-        currentHls.attachMedia(videoElement);
-        
-        currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-            if (currentHls) {
-                // 🆕 কম নেটওয়ার্কের জন্য সবচেয়ে কম কোয়ালিটি থেকে শুরু
-                if (currentHls.levels && currentHls.levels.length) {
-                    currentHls.currentLevel = 0;
-                }
-                const livePosition = currentHls.liveSyncPosition;
-                if (livePosition) {
-                    videoElement.currentTime = livePosition;
-                }
-            }
-            videoElement.play().catch(e => {
-                console.warn("Auto-play blocked:", e);
-                setLoadingOverlay(false);
+        if (Hls.isSupported()) {
+            currentHls = new Hls({
+                debug: false,
+                enableWorker: true,
+                // ⚡ লো লেটেন্সি সেটিংস
+                lowLatencyMode: true,
+                liveSyncDurationCount: 1,        // 2 থেকে কমিয়ে 1
+                liveMaxLatencyDurationCount: 3,
+                maxBufferLength: 10,              // 30 থেকে কমিয়ে 10
+                maxBufferSize: 10 * 1000 * 1000,  // 10MB বাফার
+                maxMaxBufferLength: 20,
+                startPosition: -1,                 // লাইভের একদম শেষ থেকে শুরু
+                // ⚡ টাইমআউট কমিয়ে দেয়া
+                manifestLoadingTimeOut: 5000,      // 10000 থেকে 5000
+                manifestLoadingMaxRetry: 2,
+                levelLoadingTimeOut: 5000,
+                fragLoadingTimeOut: 8000,          // 20000 থেকে 8000
+                fragLoadingMaxRetry: 3,
+                // ⚡ ABR সেটিংস
+                abrEwmaDefaultEstimate: 500000,    // বিটরেট অনুমান
+                abrEwmaFastLive: 1,
+                abrEwmaSlowLive: 5,
+                abrBandWidthFactor: 0.8,
+                abrBandWidthUpFactor: 0.7
             });
-        });
+            
+            currentHls.loadSource(url);
+            currentHls.attachMedia(videoElement);
+            
+            currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                // ⚡ লাইভ স্ট্রিমের একদম শেষ পয়েন্টে শুরু
+                if (currentHls) {
+                    const livePosition = currentHls.liveSyncPosition;
+                    if (livePosition) {
+                        videoElement.currentTime = livePosition;
+                    }
+                }
+                videoElement.play().catch(e => {
+                    console.warn("Auto-play blocked:", e);
+                    setLoadingOverlay(false);
+                });
+            });
             
             currentHls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
@@ -1020,7 +1021,7 @@
         }
 
  async function fetchChannels() {
-    const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/refs/heads/main/FIFA.json';
+    const API_URL = 'https://raw.githubusercontent.com/iatz100/panel/main/FIFA.json';
     try {
         const res = await fetch(API_URL, { cache: "no-cache" });
         if (!res.ok) throw new Error();
