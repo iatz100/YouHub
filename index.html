@@ -792,77 +792,64 @@
     videoElement.pause();
     videoElement.removeAttribute('src');
     
-    const timeoutId = setTimeout(() => {
-        setLoadingOverlay(false);
-    }, 8000);
-    
     const handleCanPlay = () => {
-        clearTimeout(timeoutId);
         setLoadingOverlay(false);
         videoElement.removeEventListener('canplay', handleCanPlay);
+        videoElement.removeEventListener('loadedmetadata', handleCanPlay);
     };
-    videoElement.addEventListener('canplay', handleCanPlay);
     
+    videoElement.addEventListener('canplay', handleCanPlay);
+    videoElement.addEventListener('loadedmetadata', handleCanPlay);
+    
+    // 🚀 HLS Stream - দ্রুত লোডের জন্য অপটিমাইজড
     if (url.includes('.m3u8') || url.includes('m3u8')) {
-        if (Hls.isSupported()) {
-            currentHls = new Hls({
-                debug: false,
-                enableWorker: true,
-                // 🔥 কম নেটওয়ার্কের জন্য স্পেশাল সেটিংস
-                lowLatencyMode: true,
-                liveSyncDurationCount: 1,
-                liveMaxLatencyDurationCount: 2,
-                // ⚡ মিনিমাম বাফার (দ্রুত শুরু)
-                maxBufferLength: 0.5,                // 0.5 সেকেন্ড বাফার
-                maxBufferSize: 500 * 1000,            // 500KB বাফার
-                maxMaxBufferLength: 1,
-                startPosition: -1,
-                // 🎯 নেটওয়ার্ক অনুযায়ী অটো কোয়ালিটি
-                abrEwmaDefaultEstimate: 100000,       // 100kbps ডিফল্ট
-                abrEwmaFastLive: 0.3,
-                abrEwmaSlowLive: 1,
-                abrBandWidthFactor: 0.5,              // খারাপ নেটে কম কোয়ালিটি
-                abrBandWidthUpFactor: 0.3,            // ধীরে আপগ্রেড
-                startFragPrefetch: true,
-                testBandwidth: true,                  // নেট স্পিড টেস্ট করবে
-                // ⚡ টাইমআউট দ্রুত
-                manifestLoadingTimeOut: 5000,
-                manifestLoadingMaxRetry: 2,
-                levelLoadingTimeOut: 3000,
-                fragLoadingTimeOut: 5000,
-                fragLoadingMaxRetry: 3
-            });
-            
-            currentHls.loadSource(url);
-            currentHls.attachMedia(videoElement);
-            
-            let started = false;
-            
-            currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                if (currentHls && !started) {
-                    started = true;
-                    // সবচেয়ে কম কোয়ালিটি থেকে শুরু
-                    if (currentHls.levels && currentHls.levels.length) {
-                        currentHls.currentLevel = -1;  // অটো মোড - নেট অনুযায়ী সিলেক্ট
-                    }
-                    videoElement.play().catch(e => console.warn(e));
+    if (Hls.isSupported()) {
+        currentHls = new Hls({
+            debug: false,
+            enableWorker: true,
+            lowLatencyMode: true,
+            liveSyncDurationCount: 1,
+            liveMaxLatencyDurationCount: 3,
+            maxBufferLength: 3,              // ✅ পরিবর্তন
+            maxBufferSize: 3 * 1000 * 1000,  // ✅ পরিবর্তন
+            maxMaxBufferLength: 6,           // ✅ পরিবর্তন
+            startPosition: -1,
+            manifestLoadingTimeOut: 5000,
+            manifestLoadingMaxRetry: 2,
+            levelLoadingTimeOut: 5000,
+            fragLoadingTimeOut: 8000,
+            fragLoadingMaxRetry: 3,
+            abrEwmaDefaultEstimate: 300000,  // ✅ 500000 থেকে কমিয়ে 300000
+            abrEwmaFastLive: 0.5,            // ✅ নতুন
+            abrEwmaSlowLive: 2,              // ✅ নতুন
+            abrBandWidthFactor: 0.7,          // ✅ 0.8 থেকে 0.7
+            abrBandWidthUpFactor: 0.5         // ✅ 0.7 থেকে 0.5
+        });
+        
+        currentHls.loadSource(url);
+        currentHls.attachMedia(videoElement);
+        
+        currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (currentHls) {
+                // 🆕 কম নেটওয়ার্কের জন্য সবচেয়ে কম কোয়ালিটি থেকে শুরু
+                if (currentHls.levels && currentHls.levels.length) {
+                    currentHls.currentLevel = 0;
                 }
-            });
-            
-            // নেটওয়ার্ক চেক করে অটো কোয়ালিটি অ্যাডজাস্ট
-            currentHls.on(Hls.Events.FRAG_LOADED, () => {
-                if (currentHls && currentHls.levels) {
-                    const currentBitrate = currentHls.bandwidthEstimate;
-                    if (currentBitrate < 200000) { // 200kbps এর নিচে
-                        currentHls.nextLevel = 0;  // সবচেয়ে লো কোয়ালিটি
-                    }
+                const livePosition = currentHls.liveSyncPosition;
+                if (livePosition) {
+                    videoElement.currentTime = livePosition;
                 }
+            }
+            videoElement.play().catch(e => {
+                console.warn("Auto-play blocked:", e);
+                setLoadingOverlay(false);
             });
+        });
             
             currentHls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                        setTimeout(() => loadVideoStream(url, videoElement), 2000);
+                        setTimeout(() => loadVideoStream(url, videoElement), 1000);
                     } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         currentHls.recoverMediaError();
                     } else {
@@ -870,19 +857,26 @@
                     }
                 }
             });
+        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+            videoElement.src = url;
+            videoElement.load();
+            videoElement.play().catch(e => setLoadingOverlay(false));
         } else {
             fallbackPlay(url, videoElement);
         }
     } else {
         fallbackPlay(url, videoElement);
     }
-    
-    function fallbackPlay(url, video) {
-        video.src = url;
-        video.load();
-        video.play().catch(() => setLoadingOverlay(false));
-    }
 }
+        
+        function fallbackPlay(url, video) {
+            video.src = url;
+            video.load();
+            video.play().catch(e => {
+                console.warn("Fallback play error:", e);
+                setLoadingOverlay(false);
+            });
+        }
         
         function renderHomeChannels(channels) {
             const grid = document.getElementById('channelGrid');
